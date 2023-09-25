@@ -55,6 +55,14 @@ docker-compose up -d postgres
 make migrateup
 ```
 
+## Start the identity provider (Keycloak)
+
+In order to login, we rely on an identity provider that stores the usernames and passwords.
+
+```bash
+docker-compose up -d keycloak
+```
+
 ## Run the application
 
 You will need to [initialize the database](#initialize-the-database) before you can start the application.  Then run the application:

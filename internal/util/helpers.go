@@ -41,6 +41,7 @@ import (
 	_ "github.com/lib/pq" // nolint
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -89,6 +90,14 @@ type Credentials struct {
 	RefreshToken          string `json:"refresh_token"`
 	AccessTokenExpiresIn  int    `json:"access_token_expires_in"`
 	RefreshTokenExpiresIn int    `json:"refresh_token_expires_in"`
+}
+
+// Credentials is a struct to hold the access and refresh tokens
+type OpenIdCredentials struct {
+	AccessToken          string    `json:"access_token"`
+	RefreshToken         string    `json:"refresh_token"`
+	IDToken              string    `json:"IDToken"`
+	AccessTokenExpiresIn time.Time `json:"expiry"`
 }
 
 func getCredentialsPath() (string, error) {
@@ -144,12 +153,11 @@ func GetGrpcConnection(grpc_host string, grpc_port int, allowInsecure bool) (*gr
 	// read credentials
 	token := ""
 	refreshToken := ""
-	expirationTime := 0
+	//expirationTime := 0
 	creds, err := LoadCredentials()
 	if err == nil {
 		token = creds.AccessToken
 		refreshToken = creds.RefreshToken
-		expirationTime = creds.RefreshTokenExpiresIn
 	}
 
 	credentialOpts := credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS13})
@@ -180,20 +188,21 @@ func GetGrpcConnection(grpc_host string, grpc_port int, allowInsecure bool) (*gr
 	}
 
 	if needsRefresh && refreshToken != "" {
-		// call refresh endpoint
-		result, err := client.RefreshToken(ctx, &pb.RefreshTokenRequest{})
-		if err == nil {
-			// combine the credentials and save them
-			creds := Credentials{
-				AccessToken:           result.AccessToken,
-				RefreshToken:          refreshToken,
-				AccessTokenExpiresIn:  int(result.AccessTokenExpiresIn),
-				RefreshTokenExpiresIn: expirationTime,
-			}
-
-			// save credentials
-			_, _ = SaveCredentials(creds)
-		}
+		//TODO: refresh token
+		//// call refresh endpoint
+		//result, err := client.RefreshToken(ctx, &pb.RefreshTokenRequest{})
+		//if err == nil {
+		//	// combine the credentials and save them
+		//	creds := Credentials{
+		//		AccessToken:           result.AccessToken,
+		//		RefreshToken:          refreshToken,
+		//		AccessTokenExpiresIn:  int(result.AccessTokenExpiresIn),
+		//		RefreshTokenExpiresIn: expirationTime,
+		//	}
+		//
+		//	// save credentials
+		//	_, _ = SaveCredentials(creds)
+		//}
 	}
 
 	return conn, nil
@@ -210,9 +219,9 @@ func (tw *TestWriter) Write(p []byte) (n int, err error) {
 }
 
 // SaveCredentials saves the credentials to a file
-func SaveCredentials(creds Credentials) (string, error) {
+func SaveCredentials(tokens *oidc.Tokens[*oidc.IDTokenClaims]) (string, error) {
 	// marshal the credentials to json
-	credsJSON, err := json.Marshal(creds)
+	credsJSON, err := json.Marshal(tokens)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling credentials: %v", err)
 	}
@@ -236,22 +245,22 @@ func SaveCredentials(creds Credentials) (string, error) {
 }
 
 // LoadCredentials loads the credentials from a file
-func LoadCredentials() (Credentials, error) {
+func LoadCredentials() (OpenIdCredentials, error) {
 	filePath, err := getCredentialsPath()
 	if err != nil {
-		return Credentials{}, fmt.Errorf("error getting credentials path: %v", err)
+		return OpenIdCredentials{}, fmt.Errorf("error getting credentials path: %v", err)
 	}
 
 	// Read the file
 	credsJSON, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
-		return Credentials{}, fmt.Errorf("error reading credentials file: %v", err)
+		return OpenIdCredentials{}, fmt.Errorf("error reading credentials file: %v", err)
 	}
 
-	var creds Credentials
+	var creds OpenIdCredentials
 	err = json.Unmarshal(credsJSON, &creds)
 	if err != nil {
-		return Credentials{}, fmt.Errorf("error unmarshaling credentials: %v", err)
+		return OpenIdCredentials{}, fmt.Errorf("error unmarshaling credentials: %v", err)
 	}
 	return creds, nil
 }

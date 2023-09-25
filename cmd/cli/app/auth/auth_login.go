@@ -22,16 +22,42 @@
 package auth
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/gorilla/securecookie"
+	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/zitadel/oidc/v2/pkg/client/rp"
+	httphelper "github.com/zitadel/oidc/v2/pkg/http"
+	"github.com/zitadel/oidc/v2/pkg/oidc"
+	"golang.org/x/oauth2"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/stacklok/mediator/internal/config"
 	"github.com/stacklok/mediator/internal/util"
 	pb "github.com/stacklok/mediator/pkg/api/protobuf/go/mediator/v1"
 )
+
+func userRegistered(ctx context.Context, client pb.UserServiceClient) (bool, error) {
+	_, err := client.GetUser(ctx, &pb.GetUserRequest{})
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.NotFound {
+				return false, nil
+			}
+		}
+		return false, fmt.Errorf("Error retrieving user %v", err)
+	}
+	return true, nil
+}
 
 // auth_loginCmd represents the login command
 var auth_loginCmd = &cobra.Command{
@@ -45,57 +71,115 @@ will be saved to $XDG_CONFIG_HOME/mediator/credentials.json`,
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		username := util.GetConfigValue("username", "username", cmd, "").(string)
-		password := util.GetConfigValue("password", "password", cmd, "").(string)
+		ctx := context.Background()
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		sslcli := &http.Client{Transport: tr}
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, sslcli)
+		cfg, err := config.ReadConfigFromViper(viper.GetViper())
+		util.ExitNicelyOnError(err, "unable to read config")
 
-		conn, err := util.GrpcForCommand(cmd)
-		util.ExitNicelyOnError(err, "Error getting grpc connection")
-		defer conn.Close()
+		clientID := cfg.Identity.ClientId
+		issuer := fmt.Sprintf("%v/realms/%v", cfg.Identity.IssuerUrl, cfg.Identity.Realm)
+		scopes := []string{"openid"}
+		callbackPath := "/auth/callback"
 
-		client := pb.NewAuthServiceClient(conn)
-		ctx, cancel := util.GetAppContext()
-		defer cancel()
-
-		// call login endpoint
-		resp, err := client.LogIn(ctx, &pb.LogInRequest{Username: username, Password: password})
-		if err != nil {
-			ret := status.Convert(err)
-			fmt.Fprintf(os.Stderr, "Error logging in: Code: %d\nName: %s\nDetails: %s\n", ret.Code(), ret.Code().String(), ret.Message())
-
-			os.Exit(int(ret.Code()))
+		// create encrypted cookie handler to mitigate CSRF attacks
+		hashKey := securecookie.GenerateRandomKey(32)
+		encryptKey := securecookie.GenerateRandomKey(32)
+		cookieHandler := httphelper.NewCookieHandler(hashKey, encryptKey, httphelper.WithUnsecure())
+		options := []rp.Option{
+			rp.WithCookieHandler(cookieHandler),
+			rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
+			rp.WithPKCE(cookieHandler),
 		}
 
-		// marshal the credentials to json
-		creds := util.Credentials{
-			AccessToken:           resp.AccessToken,
-			RefreshToken:          resp.RefreshToken,
-			AccessTokenExpiresIn:  int(resp.AccessTokenExpiresIn),
-			RefreshTokenExpiresIn: int(resp.RefreshTokenExpiresIn),
+		// Get random port
+		port, err := util.GetRandomPort()
+		util.ExitNicelyOnError(err, "Error getting random port")
+		redirectURI := fmt.Sprintf("http://localhost:%v%v", port, callbackPath)
+		provider, err := rp.NewRelyingPartyOIDC(issuer, clientID, "", redirectURI, scopes, options...)
+		util.ExitNicelyOnError(err, "error creating provider")
+
+		state := func() string {
+			return uuid.New().String()
 		}
+
+		tokenChan := make(chan *oidc.Tokens[*oidc.IDTokenClaims])
+
+		callback := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty) {
+
+			tokenChan <- tokens
+			msg := "<p><strong>Authentication successful</strong>. You may now close this tab and return to your terminal.</p>"
+			// send a success message to the browser
+			fmt.Fprint(w, msg)
+		}
+		http.Handle("/login", rp.AuthURLHandler(state, provider))
+		http.Handle(callbackPath, rp.CodeExchangeHandler(callback, provider))
+
+		server := &http.Server{
+			Addr:              fmt.Sprintf(":%d", port),
+			ReadHeaderTimeout: time.Second * 10,
+		}
+		// Start the server in a goroutine
+		go func() {
+			_ = server.ListenAndServe()
+		}()
+
+		// get the OAuth authorization URL
+		loginUrl := fmt.Sprintf("http://localhost:%v/login", port)
+
+		// Redirect user to provider to log in
+		fmt.Printf("Your browser will now be opened to: %s\n", loginUrl)
+		fmt.Println("Please follow the instructions on the page to log in.")
+
+		// open user's browser to login page
+		if err := browser.OpenURL(loginUrl); err != nil {
+			fmt.Printf("You may login by pasting this URL into your browser: %s\n", loginUrl)
+		}
+
+		fmt.Printf("Waiting for token\n")
+
+		// wait for the token to be received
+		token := <-tokenChan
 
 		// save credentials
-		filePath, err := util.SaveCredentials(creds)
+		filePath, err := util.SaveCredentials(token)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		fmt.Printf("You have been successfully logged in. Your access credentials saved to %s\n"+
-			"Remember that if that's your first login, you will need to update your password "+
-			"using the user update --password command", filePath)
+		conn, err := util.GrpcForCommand(cmd)
+		util.ExitNicelyOnError(err, "Error getting grpc connection")
+		defer conn.Close()
+		client := pb.NewUserServiceClient(conn)
 
+		// check if the user already exists in the local database
+		registered, err := userRegistered(ctx, client)
+		util.ExitNicelyOnError(err, "Error fetching user")
+
+		if !registered {
+			fmt.Println("First login, registering user.")
+			// register the user and add them to organization 1
+			// TODO: register the user in their own organization
+			_, err = client.CreateUser(ctx, &pb.CreateUserRequest{
+				OrganizationId: 1,
+			})
+			util.ExitNicelyOnError(err, "Error registering user")
+		}
+
+		fmt.Printf("You have been successfully logged in. Your access credentials saved to %s\n",
+			filePath)
+
+		// shut down the HTTP server
+		err = server.Shutdown(context.Background())
+		util.ExitNicelyOnError(err, "Failed to shut down server")
+
+		fmt.Println("Authentication successful")
 	},
 }
 
 func init() {
 	AuthCmd.AddCommand(auth_loginCmd)
-	auth_loginCmd.Flags().StringP("username", "u", "", "Username to use for authentication")
-	auth_loginCmd.Flags().StringP("password", "p", "", "Password to use for authentication")
-
-	if err := auth_loginCmd.MarkFlagRequired("username"); err != nil {
-		fmt.Fprintf(os.Stderr, "Error marking flag as required: %s\n", err)
-	}
-	if err := auth_loginCmd.MarkFlagRequired("password"); err != nil {
-		fmt.Fprintf(os.Stderr, "Error marking flag as required: %s\n", err)
-	}
-
 }

@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -73,7 +74,17 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		s, err := controlplane.NewServer(store, evt, cfg)
+		jwksUrl := fmt.Sprintf("%v/realms/%v/protocol/openid-connect/certs", cfg.Identity.IssuerUrl, cfg.Identity.Realm)
+		jwks := jwk.NewCache(ctx)
+		jwks.Register(jwksUrl)
+
+		// Refresh the JWKS once before starting
+		_, err = jwks.Refresh(ctx, jwksUrl)
+		if err != nil {
+			return fmt.Errorf("failed to refresh identity provider JWKS: %s\n", err)
+		}
+
+		s, err := controlplane.NewServer(store, evt, cfg, jwks)
 		if err != nil {
 			return fmt.Errorf("unable to create server: %w", err)
 		}

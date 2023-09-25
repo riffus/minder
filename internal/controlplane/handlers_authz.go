@@ -36,15 +36,10 @@ import (
 	mediator "github.com/stacklok/mediator/pkg/api/protobuf/go/mediator/v1"
 )
 
-func (s *Server) parseTokenForAuthz(token string) (auth.UserClaims, error) {
+func (s *Server) parseTokenForAuthz(ctx context.Context, token string) (auth.UserClaims, error) {
 	var claims auth.UserClaims
-	// need to read pub key from file
-	pubKeyData, err := s.cfg.Auth.GetAccessTokenPublicKey()
-	if err != nil {
-		return claims, fmt.Errorf("failed to read public key file")
-	}
 
-	userClaims, err := auth.VerifyToken(token, pubKeyData, s.store)
+	userClaims, err := auth.VerifyToken(ctx, token, s.store, s.jwks, s.cfg.Identity)
 	if err != nil {
 		return claims, fmt.Errorf("failed to verify token: %v", err)
 	}
@@ -207,14 +202,9 @@ func AuthUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.Unary
 	}
 
 	server := info.Server.(*Server)
-	claims, err := server.parseTokenForAuthz(token)
+	claims, err := server.parseTokenForAuthz(ctx, token)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
-	}
-
-	// check if we need a password change
-	if claims.NeedsPasswordChange && info.FullMethod != "/mediator.v1.UserService/UpdatePassword" {
-		return nil, util.UserVisibleError(codes.Unauthenticated, "password change required")
 	}
 
 	if opts.GetRootAdminOnly() && !isSuperadmin(claims) {

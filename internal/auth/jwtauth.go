@@ -23,17 +23,13 @@ package auth
 
 import (
 	"context"
-	"crypto/rsa"
 	"errors"
 	"fmt"
-	"time"
-
-	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/exp/slices"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/stacklok/mediator/internal/config"
 	"github.com/stacklok/mediator/internal/db"
+	"golang.org/x/exp/slices"
 )
 
 // RoleInfo contains the role information for a user
@@ -46,179 +42,85 @@ type RoleInfo struct {
 
 // UserClaims contains the claims for a user
 type UserClaims struct {
-	UserId              int32
-	GroupIds            []int32
-	Roles               []RoleInfo
-	OrganizationId      int32
-	NeedsPasswordChange bool
-}
-
-// GenerateToken generates a JWT token
-func GenerateToken(userClaims UserClaims, accessPrivateKey *rsa.PrivateKey, refreshPrivateKey *rsa.PrivateKey,
-	expiry int64, refreshExpiry int64) (string, string, int64, int64, error) {
-	if accessPrivateKey == nil || refreshPrivateKey == nil {
-		return "", "", 0, 0, fmt.Errorf("invalid key")
-	}
-	tokenExpirationTime := time.Now().Add(time.Duration(expiry) * time.Second).Unix()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"userId":              int32(userClaims.UserId),
-		"roleInfo":            userClaims.Roles,
-		"groupIds":            userClaims.GroupIds,
-		"orgId":               int32(userClaims.OrganizationId),
-		"iat":                 time.Now().Unix(),
-		"exp":                 tokenExpirationTime,
-		"needsPasswordChange": userClaims.NeedsPasswordChange,
-	})
-
-	tokenString, err := token.SignedString(accessPrivateKey)
-	if err != nil {
-		return "", "", 0, 0, err
-	}
-
-	// Create a refresh token that lasts longer than the access token
-	refreshExpirationTime := time.Now().Add(time.Duration(refreshExpiry) * time.Second).Unix()
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"userId": userClaims.UserId,
-		"iat":    time.Now().Unix(),
-		"exp":    refreshExpirationTime,
-	})
-
-	refreshTokenString, err := refreshToken.SignedString(refreshPrivateKey)
-	if err != nil {
-		return "", "", 0, 0, err
-	}
-
-	return tokenString, refreshTokenString, tokenExpirationTime, refreshExpirationTime, nil
+	UserId         int32
+	GroupIds       []int32
+	Roles          []RoleInfo
+	OrganizationId int32
 }
 
 // VerifyToken verifies the token string and returns the user ID
 // nolint:gocyclo
-func VerifyToken(tokenString string, publicKey *rsa.PublicKey, store db.Store) (UserClaims, error) {
+func VerifyToken(ctx context.Context, tokenString string, store db.Store, jwks *jwk.Cache, cfg config.IdentityConfig) (UserClaims, error) {
 	var userClaims UserClaims
-	if publicKey == nil {
-		return userClaims, fmt.Errorf("invalid key")
-	}
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, status.Error(codes.InvalidArgument, "unexpected signing method")
-		}
-		return publicKey, nil
-	})
+	jwksUrl := fmt.Sprintf("%v/realms/%v/protocol/openid-connect/certs", cfg.IssuerUrl, cfg.Realm)
+	set, err := jwks.Get(ctx, jwksUrl)
 
+	token, err := jwt.ParseString(tokenString, jwt.WithKeySet(set), jwt.WithValidate(true))
 	if err != nil {
 		return userClaims, err
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return userClaims, fmt.Errorf("invalid token")
-	}
+	subject := token.Subject()
 
-	// validate that iat is on the past
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		if !claims.VerifyIssuedAt(time.Now().Unix(), true) {
-			return userClaims, fmt.Errorf("token used before issued")
-		}
-	}
+	// TODO:  Consider moving the claim fetching out of this method, because this may be called when the user does not exist in the DB which cases GetUserClaims to error.
 
-	// we have the user id, read the auth
-	userId := int32(claims["userId"].(float64))
-	user, err := store.GetUserByID(context.Background(), userId)
-	if err != nil {
-		return userClaims, fmt.Errorf("unknown userId")
-	}
-
-	// if we have a value in issued at, we compare against iat
-	iat := int64(claims["iat"].(float64))
-	if user.MinTokenIssuedTime.Valid {
-		unitTs := user.MinTokenIssuedTime.Time.Unix()
-		if unitTs > iat {
-			// token was issued after the iat
-			return userClaims, fmt.Errorf("token issued after iat=%d", iat)
-		}
-	}
-
-	// generate claims
-	var groups []int32
-	if claims["groupIds"] != nil {
-		for _, g := range claims["groupIds"].([]interface{}) {
-			groups = append(groups, int32(g.(float64)))
-		}
-	}
-	userClaims.GroupIds = groups
-
-	var roles []RoleInfo
-	if claims["roleInfo"] != nil {
-		for _, role := range claims["roleInfo"].([]interface{}) {
-			roleInfo := RoleInfo{RoleID: int32(role.(map[string]interface{})["role_id"].(float64)),
-				IsAdmin:        role.(map[string]interface{})["is_admin"].(bool),
-				GroupID:        int32(role.(map[string]interface{})["group_id"].(float64)),
-				OrganizationID: int32(role.(map[string]interface{})["organization_id"].(float64))}
-
-			roles = append(roles, roleInfo)
-		}
-	}
-	userClaims.Roles = roles
-	userClaims.UserId = int32(claims["userId"].(float64))
-
-	userClaims.OrganizationId = int32(claims["orgId"].(float64))
-	userClaims.NeedsPasswordChange = claims["needsPasswordChange"].(bool)
+	// get user authorities from the database
+	userClaims, _ = GetUserClaims(ctx, store, subject)
 
 	return userClaims, nil
 }
 
 // VerifyRefreshToken verifies the refresh token string and returns the user ID
-func VerifyRefreshToken(tokenString string, publicKey *rsa.PublicKey, store db.Store) (int32, error) {
-	if publicKey == nil {
-		return 0, fmt.Errorf("invalid key")
-	}
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, status.Error(codes.InvalidArgument, "unexpected signing method")
-		}
-		return publicKey, nil
-	})
-
-	if err != nil {
-		return 0, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return 0, fmt.Errorf("invalid token")
-	}
-
-	// validate that iat is on the past
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		if !claims.VerifyIssuedAt(time.Now().Unix(), true) {
-			return 0, fmt.Errorf("invalid token")
-		}
-	}
-
-	// we have the user id, check if exists
-	userId := int32(claims["userId"].(float64))
-	_, err = store.GetUserByID(context.Background(), userId)
-	if err != nil {
-		return 0, fmt.Errorf("invalid token")
-	}
-
-	return userId, nil
-}
+//func VerifyRefreshToken(tokenString string, publicKey *rsa.PublicKey, store db.Store) (int32, error) {
+//	if publicKey == nil {
+//		return 0, fmt.Errorf("invalid key")
+//	}
+//	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+//		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+//			return nil, status.Error(codes.InvalidArgument, "unexpected signing method")
+//		}
+//		return publicKey, nil
+//	})
+//
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	claims, ok := token.Claims.(jwt.MapClaims)
+//	if !ok || !token.Valid {
+//		return 0, fmt.Errorf("invalid token")
+//	}
+//
+//	// validate that iat is on the past
+//	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+//		if !claims.VerifyIssuedAt(time.Now().Unix(), true) {
+//			return 0, fmt.Errorf("invalid token")
+//		}
+//	}
+//
+//	// we have the user id, check if exists
+//	userId := int32(claims["userId"].(float64))
+//	_, err = store.GetUserByID(context.Background(), userId)
+//	if err != nil {
+//		return 0, fmt.Errorf("invalid token")
+//	}
+//
+//	return userId, nil
+//}
 
 // GetUserClaims returns the user claims for the given user
-func GetUserClaims(ctx context.Context, store db.Store, userId int32) (UserClaims, error) {
+func GetUserClaims(ctx context.Context, store db.Store, subject string) (UserClaims, error) {
 	emptyClaims := UserClaims{}
 
 	// read all information for user claims
-	userInfo, err := store.GetUserByID(ctx, userId)
+	userInfo, err := store.GetUserBySubject(ctx, subject)
 	if err != nil {
 		return emptyClaims, fmt.Errorf("failed to read user")
 	}
 
 	// read groups and add id to claims
-	gs, err := store.GetUserGroups(ctx, userId)
+	gs, err := store.GetUserGroups(ctx, userInfo.ID)
 	if err != nil {
 		return emptyClaims, fmt.Errorf("failed to get groups")
 	}
@@ -228,7 +130,7 @@ func GetUserClaims(ctx context.Context, store db.Store, userId int32) (UserClaim
 	}
 
 	// read roles and add details to claims
-	rs, err := store.GetUserRoles(ctx, userId)
+	rs, err := store.GetUserRoles(ctx, userInfo.ID)
 	if err != nil {
 		return emptyClaims, fmt.Errorf("failed to get roles")
 	}
@@ -239,11 +141,10 @@ func GetUserClaims(ctx context.Context, store db.Store, userId int32) (UserClaim
 	}
 
 	claims := UserClaims{
-		UserId:              userId,
-		Roles:               roles,
-		GroupIds:            groups,
-		OrganizationId:      userInfo.OrganizationID,
-		NeedsPasswordChange: userInfo.NeedsPasswordChange,
+		UserId:         userInfo.ID,
+		Roles:          roles,
+		GroupIds:       groups,
+		OrganizationId: userInfo.OrganizationID,
 	}
 
 	return claims, nil
