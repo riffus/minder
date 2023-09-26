@@ -1,0 +1,18 @@
+:root {
+    --pf-global--primary-color--100: #00BBBE;
+    --pf-global--primary-color--200: #002A3E;
+    --default-background-color: #EAF2FA;
+}
+
+.login-pf body {
+    background: #EAF2FA;
+}
+
+#kc-header {
+    color: #00BBBE;
+}
+
+div.kc-logo-text {
+    background-image: url(../img/stacklok.png);
+    background-size: contain;
+}
