@@ -118,8 +118,10 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./identity/import:/opt/keycloak/data/import
-      - ./identity/themes:/opt/keycloak/themes
+      - ./identity/import:/opt/keycloak/data/import:z
+      - ./identity/themes:/opt/keycloak/themes:z
+    networks:
+      - app_net
 networks:
   app_net:
     driver: bridge
