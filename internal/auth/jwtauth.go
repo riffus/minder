@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/stacklok/mediator/internal/config"
+	"github.com/lestrrat-go/jwx/v2/jwt/openid"
 	"github.com/stacklok/mediator/internal/db"
 	"golang.org/x/exp/slices"
 )
@@ -40,25 +40,72 @@ type RoleInfo struct {
 	OrganizationID int32 `json:"organization_id"`
 }
 
-// UserClaims contains the claims for a user
-type UserClaims struct {
+// UserPermissions contains the permissions for a user
+type UserPermissions struct {
 	UserId         int32
 	GroupIds       []int32
 	Roles          []RoleInfo
 	OrganizationId int32
 }
 
+type JwtValidator interface {
+	ParseAndValidate(tokenString string) (openid.Token, error)
+}
+
+type JwkSetJwtValidator struct {
+	ctx     context.Context
+	jwksUrl string
+	jwks    *jwk.Cache
+}
+
+func (j *JwkSetJwtValidator) ParseAndValidate(tokenString string) (openid.Token, error) {
+	set, err := j.jwks.Get(j.ctx, j.jwksUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := jwt.ParseString(tokenString, jwt.WithKeySet(set), jwt.WithValidate(true), jwt.WithToken(openid.New()))
+	if err != nil {
+		return nil, err
+	}
+
+	openIdToken, ok := token.(openid.Token)
+	if !ok {
+		return nil, fmt.Errorf("provided token was not an OpenID token")
+	}
+	return openIdToken, nil
+}
+
+func NewJwtValidator(ctx context.Context, jwksUrl string) (JwtValidator, error) {
+	// Cache the JWK set
+	// The cache will refresh every 15 minutes by default
+	jwks := jwk.NewCache(ctx)
+	err := jwks.Register(jwksUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	// Refresh the JWKS once before starting
+	_, err = jwks.Refresh(ctx, jwksUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh identity provider JWKS: %s\n", err)
+	}
+
+	return &JwkSetJwtValidator{
+		ctx:     ctx,
+		jwksUrl: jwksUrl,
+		jwks:    jwks,
+	}, nil
+}
+
 // VerifyToken verifies the token string and returns the user ID
 // nolint:gocyclo
-func VerifyToken(ctx context.Context, tokenString string, store db.Store, jwks *jwk.Cache, cfg config.IdentityConfig) (UserClaims, error) {
-	var userClaims UserClaims
+func VerifyToken(ctx context.Context, tokenString string, store db.Store, vldtr JwtValidator) (UserPermissions, error) {
+	var userPermissions UserPermissions
 
-	jwksUrl := fmt.Sprintf("%v/realms/%v/protocol/openid-connect/certs", cfg.IssuerUrl, cfg.Realm)
-	set, err := jwks.Get(ctx, jwksUrl)
-
-	token, err := jwt.ParseString(tokenString, jwt.WithKeySet(set), jwt.WithValidate(true))
+	token, err := vldtr.ParseAndValidate(tokenString)
 	if err != nil {
-		return userClaims, err
+		return userPermissions, err
 	}
 
 	subject := token.Subject()
@@ -66,9 +113,9 @@ func VerifyToken(ctx context.Context, tokenString string, store db.Store, jwks *
 	// TODO:  Consider moving the claim fetching out of this method, because this may be called when the user does not exist in the DB which cases GetUserClaims to error.
 
 	// get user authorities from the database
-	userClaims, _ = GetUserClaims(ctx, store, subject)
+	userPermissions, _ = GetUserPermissions(ctx, store, subject)
 
-	return userClaims, nil
+	return userPermissions, nil
 }
 
 // VerifyRefreshToken verifies the refresh token string and returns the user ID
@@ -109,9 +156,9 @@ func VerifyToken(ctx context.Context, tokenString string, store db.Store, jwks *
 //	return userId, nil
 //}
 
-// GetUserClaims returns the user claims for the given user
-func GetUserClaims(ctx context.Context, store db.Store, subject string) (UserClaims, error) {
-	emptyClaims := UserClaims{}
+// GetUserPermissions returns the user permissions from the database for the given user
+func GetUserPermissions(ctx context.Context, store db.Store, subject string) (UserPermissions, error) {
+	emptyClaims := UserPermissions{}
 
 	// read all information for user claims
 	userInfo, err := store.GetUserBySubject(ctx, subject)
@@ -140,7 +187,7 @@ func GetUserClaims(ctx context.Context, store db.Store, subject string) (UserCla
 		roles = append(roles, RoleInfo{RoleID: r.ID, IsAdmin: r.IsAdmin, GroupID: r.GroupID.Int32, OrganizationID: r.OrganizationID})
 	}
 
-	claims := UserClaims{
+	claims := UserPermissions{
 		UserId:         userInfo.ID,
 		Roles:          roles,
 		GroupIds:       groups,
@@ -152,23 +199,23 @@ func GetUserClaims(ctx context.Context, store db.Store, subject string) (UserCla
 
 var tokenContextKey struct{}
 
-// GetClaimsFromContext returns the claims from the context, or an empty default
-func GetClaimsFromContext(ctx context.Context) UserClaims {
-	claims, ok := ctx.Value(tokenContextKey).(UserClaims)
+// GetPermissionsFromContext returns the claims from the context, or an empty default
+func GetPermissionsFromContext(ctx context.Context) UserPermissions {
+	claims, ok := ctx.Value(tokenContextKey).(UserPermissions)
 	if !ok {
-		return UserClaims{UserId: -1, OrganizationId: -1}
+		return UserPermissions{UserId: -1, OrganizationId: -1}
 	}
 	return claims
 }
 
 // WithClaimContext stores the specified UserClaim in the context.
-func WithClaimContext(ctx context.Context, claims UserClaims) context.Context {
+func WithClaimContext(ctx context.Context, claims UserPermissions) context.Context {
 	return context.WithValue(ctx, tokenContextKey, claims)
 }
 
 // GetDefaultGroup returns the default group id for the user
 func GetDefaultGroup(ctx context.Context) (int32, error) {
-	claims := GetClaimsFromContext(ctx)
+	claims := GetPermissionsFromContext(ctx)
 	if len(claims.GroupIds) != 1 {
 		return 0, errors.New("cannot get default group")
 	}
@@ -177,13 +224,13 @@ func GetDefaultGroup(ctx context.Context) (int32, error) {
 
 // IsAuthorizedForGroup returns true if the user is authorized for the given group
 func IsAuthorizedForGroup(ctx context.Context, groupId int32) bool {
-	claims := GetClaimsFromContext(ctx)
+	claims := GetPermissionsFromContext(ctx)
 
 	return slices.Contains(claims.GroupIds, groupId)
 }
 
 // GetUserGroups returns all the groups where an user belongs to
 func GetUserGroups(ctx context.Context) ([]int32, error) {
-	claims := GetClaimsFromContext(ctx)
+	claims := GetPermissionsFromContext(ctx)
 	return claims.GroupIds, nil
 }

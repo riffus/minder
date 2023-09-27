@@ -18,13 +18,13 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"github.com/stacklok/mediator/internal/auth"
 	"log"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	_ "github.com/lib/pq" // This is required for the postgres driver
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -62,6 +62,7 @@ type Server struct {
 	cfg        *config.Config
 	evt        *events.Eventer
 	grpcServer *grpc.Server
+	vldtr      auth.JwtValidator
 	pb.UnimplementedHealthServiceServer
 	pb.UnimplementedOAuthServiceServer
 	pb.UnimplementedAuthServiceServer
@@ -77,11 +78,10 @@ type Server struct {
 	ClientID     string
 	ClientSecret string
 	cryptoEngine *crypto.Engine
-	jwks         *jwk.Cache
 }
 
 // NewServer creates a new server instance
-func NewServer(store db.Store, evt *events.Eventer, cfg *config.Config, jwks *jwk.Cache) (*Server, error) {
+func NewServer(store db.Store, evt *events.Eventer, cfg *config.Config, vldtr auth.JwtValidator) (*Server, error) {
 	eng, err := crypto.EngineFromAuthConfig(&cfg.Auth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create crypto engine: %w", err)
@@ -91,7 +91,7 @@ func NewServer(store db.Store, evt *events.Eventer, cfg *config.Config, jwks *jw
 		cfg:          cfg,
 		evt:          evt,
 		cryptoEngine: eng,
-		jwks:         jwks,
+		vldtr:        vldtr,
 	}, nil
 }
 

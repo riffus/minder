@@ -121,8 +121,6 @@
     - [ListRepositoriesResponse](#mediator-v1-ListRepositoriesResponse)
     - [ListRuleTypesRequest](#mediator-v1-ListRuleTypesRequest)
     - [ListRuleTypesResponse](#mediator-v1-ListRuleTypesResponse)
-    - [LogInRequest](#mediator-v1-LogInRequest)
-    - [LogInResponse](#mediator-v1-LogInResponse)
     - [LogOutRequest](#mediator-v1-LogOutRequest)
     - [LogOutResponse](#mediator-v1-LogOutResponse)
     - [OrganizationRecord](#mediator-v1-OrganizationRecord)
@@ -614,6 +612,9 @@ User service
 | ----- | ---- | ----- | ----------- |
 | id | [int32](#int32) |  |  |
 | organization_id | [int32](#int32) |  |  |
+| email | [string](#string) | optional |  |
+| first_name | [string](#string) | optional |  |
+| last_name | [string](#string) | optional |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
@@ -2068,40 +2069,6 @@ ListRuleTypesResponse is the response to list rule types.
 
 
 
-<a name="mediator-v1-LogInRequest"></a>
-
-### LogInRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| username | [string](#string) |  |  |
-| password | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="mediator-v1-LogInResponse"></a>
-
-### LogInResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| refresh_token | [string](#string) |  |  |
-| access_token | [string](#string) |  |  |
-| refresh_token_expires_in | [int64](#int64) |  |  |
-| access_token_expires_in | [int64](#int64) |  |  |
-
-
-
-
-
-
 <a name="mediator-v1-LogOutRequest"></a>
 
 ### LogOutRequest
@@ -3097,7 +3064,6 @@ Repo filter enum
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| LogIn | [LogInRequest](#mediator-v1-LogInRequest) | [LogInResponse](#mediator-v1-LogInResponse) | LogIn to Mediator |
 | LogOut | [LogOutRequest](#mediator-v1-LogOutRequest) | [LogOutResponse](#mediator-v1-LogOutResponse) | Logout of Mediator |
 | RevokeTokens | [RevokeTokensRequest](#mediator-v1-RevokeTokensRequest) | [RevokeTokensResponse](#mediator-v1-RevokeTokensResponse) | revoke all tokens for all users |
 | RevokeUserToken | [RevokeUserTokenRequest](#mediator-v1-RevokeUserTokenRequest) | [RevokeUserTokenResponse](#mediator-v1-RevokeUserTokenResponse) | revoke token for an user |

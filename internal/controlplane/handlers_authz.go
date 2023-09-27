@@ -36,10 +36,10 @@ import (
 	mediator "github.com/stacklok/mediator/pkg/api/protobuf/go/mediator/v1"
 )
 
-func (s *Server) parseTokenForAuthz(ctx context.Context, token string) (auth.UserClaims, error) {
-	var claims auth.UserClaims
+func (s *Server) parseTokenForAuthz(ctx context.Context, token string) (auth.UserPermissions, error) {
+	var claims auth.UserPermissions
 
-	userClaims, err := auth.VerifyToken(ctx, token, s.store, s.jwks, s.cfg.Identity)
+	userClaims, err := auth.VerifyToken(ctx, token, s.store, s.vldtr)
 	if err != nil {
 		return claims, fmt.Errorf("failed to verify token: %v", err)
 	}
@@ -63,7 +63,7 @@ var githubAuthorizations = []string{
 }
 
 // checks if an user is superadmin
-func isSuperadmin(claims auth.UserClaims) bool {
+func isSuperadmin(claims auth.UserPermissions) bool {
 	// need to check that has a role that belongs to org 1 generally and is admin
 	for _, role := range claims.Roles {
 		if role.OrganizationID == 1 && role.GroupID == 0 && role.IsAdmin {
@@ -76,7 +76,7 @@ func isSuperadmin(claims auth.UserClaims) bool {
 // AuthorizedOnOrg checks if the request is authorized for the given
 // organization, and returns an error if the request is not authorized.
 func AuthorizedOnOrg(ctx context.Context, orgId int32) error {
-	claims := auth.GetClaimsFromContext(ctx)
+	claims := auth.GetPermissionsFromContext(ctx)
 	if isSuperadmin(claims) {
 		return nil
 	}
@@ -99,7 +99,7 @@ func AuthorizedOnOrg(ctx context.Context, orgId int32) error {
 // AuthorizedOnGroup checks if the request is authorized for the given
 // group, and returns an error if the request is not authorized.
 func AuthorizedOnGroup(ctx context.Context, groupId int32) error {
-	claims := auth.GetClaimsFromContext(ctx)
+	claims := auth.GetPermissionsFromContext(ctx)
 	if isSuperadmin(claims) {
 		return nil
 	}
@@ -124,7 +124,7 @@ func AuthorizedOnGroup(ctx context.Context, groupId int32) error {
 // AuthorizedOnUser checks if the request is authorized for the given
 // user, and returns an error if the request is not authorized.
 func AuthorizedOnUser(ctx context.Context, userId int32) error {
-	claims := auth.GetClaimsFromContext(ctx)
+	claims := auth.GetPermissionsFromContext(ctx)
 	if isSuperadmin(claims) {
 		return nil
 	}

@@ -17,6 +17,7 @@ package controlplane
 
 import (
 	"context"
+	"github.com/golang/mock/gomock"
 	"log"
 	"net"
 	"net/http"
@@ -34,6 +35,7 @@ import (
 	mockdb "github.com/stacklok/mediator/database/mock"
 	"github.com/stacklok/mediator/internal/config"
 	"github.com/stacklok/mediator/internal/events"
+	mockjwt "github.com/stacklok/mediator/internal/mock"
 	pb "github.com/stacklok/mediator/pkg/api/protobuf/go/mediator/v1"
 )
 
@@ -92,15 +94,17 @@ func newDefaultServer(t *testing.T, mockStore *mockdb.MockStore, cfg ...*config.
 		c = cfg[0]
 	} else {
 		tokenKeyPath := generateTokenKey(t)
-
 		c = &config.Config{
 			Auth: config.AuthConfig{
 				TokenKey: tokenKeyPath,
 			},
 		}
 	}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockJwt := mockjwt.NewMockJwtValidator(ctrl)
 
-	server, err := NewServer(mockStore, evt, c)
+	server, err := NewServer(mockStore, evt, c, mockJwt)
 	require.NoError(t, err, "failed to create server")
 	return server
 }

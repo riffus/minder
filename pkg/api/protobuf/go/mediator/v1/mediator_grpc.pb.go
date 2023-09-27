@@ -574,7 +574,6 @@ var OAuthService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	AuthService_LogIn_FullMethodName           = "/mediator.v1.AuthService/LogIn"
 	AuthService_LogOut_FullMethodName          = "/mediator.v1.AuthService/LogOut"
 	AuthService_RevokeTokens_FullMethodName    = "/mediator.v1.AuthService/RevokeTokens"
 	AuthService_RevokeUserToken_FullMethodName = "/mediator.v1.AuthService/RevokeUserToken"
@@ -586,8 +585,6 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuthServiceClient interface {
-	// LogIn to Mediator
-	LogIn(ctx context.Context, in *LogInRequest, opts ...grpc.CallOption) (*LogInResponse, error)
 	// Logout of Mediator
 	LogOut(ctx context.Context, in *LogOutRequest, opts ...grpc.CallOption) (*LogOutResponse, error)
 	// revoke all tokens for all users
@@ -606,15 +603,6 @@ type authServiceClient struct {
 
 func NewAuthServiceClient(cc grpc.ClientConnInterface) AuthServiceClient {
 	return &authServiceClient{cc}
-}
-
-func (c *authServiceClient) LogIn(ctx context.Context, in *LogInRequest, opts ...grpc.CallOption) (*LogInResponse, error) {
-	out := new(LogInResponse)
-	err := c.cc.Invoke(ctx, AuthService_LogIn_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *authServiceClient) LogOut(ctx context.Context, in *LogOutRequest, opts ...grpc.CallOption) (*LogOutResponse, error) {
@@ -666,8 +654,6 @@ func (c *authServiceClient) Verify(ctx context.Context, in *VerifyRequest, opts 
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility
 type AuthServiceServer interface {
-	// LogIn to Mediator
-	LogIn(context.Context, *LogInRequest) (*LogInResponse, error)
 	// Logout of Mediator
 	LogOut(context.Context, *LogOutRequest) (*LogOutResponse, error)
 	// revoke all tokens for all users
@@ -685,9 +671,6 @@ type AuthServiceServer interface {
 type UnimplementedAuthServiceServer struct {
 }
 
-func (UnimplementedAuthServiceServer) LogIn(context.Context, *LogInRequest) (*LogInResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LogIn not implemented")
-}
 func (UnimplementedAuthServiceServer) LogOut(context.Context, *LogOutRequest) (*LogOutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogOut not implemented")
 }
@@ -714,24 +697,6 @@ type UnsafeAuthServiceServer interface {
 
 func RegisterAuthServiceServer(s grpc.ServiceRegistrar, srv AuthServiceServer) {
 	s.RegisterService(&AuthService_ServiceDesc, srv)
-}
-
-func _AuthService_LogIn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LogInRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).LogIn(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_LogIn_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).LogIn(ctx, req.(*LogInRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _AuthService_LogOut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -831,10 +796,6 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "mediator.v1.AuthService",
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "LogIn",
-			Handler:    _AuthService_LogIn_Handler,
-		},
 		{
 			MethodName: "LogOut",
 			Handler:    _AuthService_LogOut_Handler,

@@ -18,9 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"os"
-
 	"github.com/go-playground/validator/v10"
 	gauth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -39,11 +36,11 @@ type createUserValidation struct {
 	OrganizationId int32 `db:"organization_id" validate:"required"`
 }
 
-func stringToNullString(s *string) *sql.NullString {
-	if s == nil {
+func stringToNullString(s string) *sql.NullString {
+	if s == "" {
 		return &sql.NullString{Valid: false}
 	}
-	return &sql.NullString{String: *s, Valid: true}
+	return &sql.NullString{String: s, Valid: true}
 }
 
 // CreateUser is a service for user self registration
@@ -57,19 +54,9 @@ func (s *Server) CreateUser(ctx context.Context,
 		return nil, status.Errorf(codes.InvalidArgument, "no auth token: %v", err)
 	}
 
-	jwksUrl := fmt.Sprintf("%v/realms/%v/protocol/openid-connect/certs", s.cfg.Identity.IssuerUrl, s.cfg.Identity.Realm)
-
-	// TODO: cache
-	set, err := s.jwks.Get(ctx, jwksUrl)
-
-	token, err := jwt.ParseString(tokenString, jwt.WithKeySet(set), jwt.WithValidate(true), jwt.WithToken(openid.New()))
+	token, err := s.vldtr.ParseAndValidate(tokenString)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "failed to parse bearer token: %v", err)
-	}
-
-	openIdToken, ok := token.(openid.Token)
-	if !ok {
-		return nil, status.Errorf(codes.InvalidArgument, "provided token was not an OpenID token: %s", err.Error())
 	}
 
 	validator := validator.New()
@@ -80,10 +67,8 @@ func (s *Server) CreateUser(ctx context.Context,
 		return nil, status.Errorf(codes.InvalidArgument, "invalid argument: %s", err.Error())
 	}
 
-	fmt.Fprintf(os.Stderr, "Got openid token: %s\n", openIdToken)
-
 	// if the token has superadmin access to the realm, then make give them a superadmin role in the DB
-	if containsAdminRole(openIdToken) {
+	if containsAdminRole(token) {
 		in.RoleIds = append(in.RoleIds, 1)
 		in.GroupIds = append(in.GroupIds, 1)
 	}
@@ -134,7 +119,11 @@ func (s *Server) CreateUser(ctx context.Context,
 		return nil, status.Errorf(codes.Internal, "failed to get transaction")
 	}
 
-	user, err := qtx.CreateUser(ctx, db.CreateUserParams{OrganizationID: in.OrganizationId, IdentitySubject: openIdToken.Subject()})
+	user, err := qtx.CreateUser(ctx, db.CreateUserParams{OrganizationID: in.OrganizationId,
+		Email:           *stringToNullString(token.Email()),
+		FirstName:       *stringToNullString(token.GivenName()),
+		LastName:        *stringToNullString(token.FamilyName()),
+		IdentitySubject: token.Subject()})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create user: %s", err)
 	}
@@ -157,19 +146,16 @@ func (s *Server) CreateUser(ctx context.Context,
 		return nil, status.Errorf(codes.Internal, "failed to commit transaction: %s", err)
 	}
 
-	return &pb.CreateUserResponse{Id: user.ID, OrganizationId: user.OrganizationID, CreatedAt: timestamppb.New(user.CreatedAt),
+	return &pb.CreateUserResponse{Id: user.ID, OrganizationId: user.OrganizationID, Email: &user.Email.String,
+		FirstName: &user.FirstName.String, LastName: &user.LastName.String, CreatedAt: timestamppb.New(user.CreatedAt),
 		UpdatedAt: timestamppb.New(user.UpdatedAt)}, nil
 }
 
 func containsAdminRole(openIdToken openid.Token) bool {
 	if realmAccess, ok := openIdToken.Get("realm_access"); ok {
-		fmt.Fprintf(os.Stderr, "Got realm_access: %s\n", realmAccess)
 		if realms, ok := realmAccess.(map[string]interface{}); ok {
-			fmt.Fprintf(os.Stderr, "Got realms: %s\n", realms)
 			if roles, ok := realms["roles"]; ok {
-				fmt.Fprintf(os.Stderr, "Got roles: %s\n", roles)
 				if userRoles, ok := roles.([]interface{}); ok {
-					fmt.Fprintf(os.Stderr, "Got userRoles: %s\n", userRoles)
 					if slices.Contains(userRoles, "superadmin") {
 						return true
 					}
@@ -249,6 +235,9 @@ func (s *Server) GetUsers(ctx context.Context,
 		resp.Users = append(resp.Users, &pb.UserRecord{
 			Id:             user.ID,
 			OrganizationId: user.OrganizationID,
+			Email:          &user.Email.String,
+			FirstName:      &user.FirstName.String,
+			LastName:       &user.LastName.String,
 			CreatedAt:      timestamppb.New(user.CreatedAt),
 			UpdatedAt:      timestamppb.New(user.UpdatedAt),
 		})

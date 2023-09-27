@@ -266,18 +266,6 @@ service OAuthService {
 }
 
 service AuthService {
-    // LogIn to Mediator
-    rpc LogIn (LogInRequest) returns (LogInResponse) {
-        option (google.api.http) = {
-            post: "/api/v1/auth/login"
-            body: "*"
-        };
-
-        option (rpc_options) = {
-            anonymous: true  // Don't need auth in order to log in
-        };
-    }
-
     // Logout of Mediator
     rpc LogOut (LogOutRequest) returns (LogOutResponse) {
         option (google.api.http) = {
@@ -915,18 +903,6 @@ message ExchangeCodeForTokenWEBResponse {
     string status = 4;
 }
 
-message LogInRequest {
-    string username = 1;
-    string password = 2;
-}
-
-message LogInResponse {
-    string refresh_token = 2;
-    string access_token = 3;
-    int64  refresh_token_expires_in = 4;
-    int64  access_token_expires_in = 5;
-}
-
 message LogOutRequest {
 }
 
@@ -1398,8 +1374,11 @@ message CreateUserRequest {
 message CreateUserResponse {
     int32 id = 1;
     int32 organization_id = 2;
-    google.protobuf.Timestamp created_at = 10;
-    google.protobuf.Timestamp updated_at = 11;
+    optional string email = 3;
+    optional string first_name = 4;
+    optional string last_name = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
 }
 
 message DeleteUserRequest {
@@ -1416,10 +1395,10 @@ message UserRecord {
     int32 organization_id = 2;
     optional string email = 3;
     string identity_subject = 4;
-    optional string first_name = 6;
-    optional string last_name = 7;
-    google.protobuf.Timestamp created_at = 10;
-    google.protobuf.Timestamp updated_at = 11;    
+    optional string first_name = 5;
+    optional string last_name = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
 }
 
 // list users

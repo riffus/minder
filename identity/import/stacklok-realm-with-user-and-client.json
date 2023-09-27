@@ -1255,9 +1255,6 @@
       "providerId" : "rsa-generated",
       "subComponents" : { },
       "config" : {
-        "privateKey" : [ "MIIEowIBAAKCAQEArWUt4nsk6bC1v8TMHcCUgVVtfwUl5p5sBh/AOIb+BscZMWTwdHkgERCnVKRpqeFtJG/W1gi9EoiMRsGhKnilBQs048e2cUOORhbBHMnPNuVGpOBqJoeYRux3HYlpzJjIvK1jwH3RJuSzDRzqCx/GS/ckunP8NsxF7ML6O7nNqBNx8752acyeW5+u7GNTMfUYIa1coG2t9xrWlLHoykfba60W0DOijdOhAJKGwFVo5bjZeXxVzDP+ALNSG/iEe2LQhzXLTeyVLX73UfXMWQspX057Lsw1DZT4mGcYdj1pH7H9X4Kkcsbg7cosect46Bts21urK1LmQ2ZssWlaXh+tbwIDAQABAoIBAAvURkAYNJl4w710eJRjCf6UzGaI/F/yWN5GFkAE/ZmKxa43+6uGg+iGIVRF7yt2xJJiyt5JNFTqWd+N4CfcmS1x6UbM3iZ1/GPNs5j6L5fIJnyjDrrYL0xPX4T1VfFuTuuITLDaJIWpvolbeqANp+KQ1sGdngxC/VY8qwOeFmir5i+1xAHiFoZ+FEGwPIHRbgdWbnuEV7i8AUwzBEuYFWHceyf0iu1gZ/nKvETcF6Q957570uQiGMAx7CWNDSaUfCQVymolU6JzXUrhEVq/uNJ0ihZJOiOOHvLNmlrZSAHw0ng0m+zWjM+r2r1qqRJm+uYi6IPUuaqMAQy10aOgxCECgYEA1JrEvuCmhdEXs3bC/R3sqzlnuTJ+4+R+atx3nZyHzOc6jQxtLiV5gUiBEbBU122nl9Kbm89psPvnxmXtff6N8lJcU7Q/Pz5apnoGdMvipoMEQOr9gmnhzuaNbQ7ct/O228tMkLw6jgUzlBonUQF/VwfUy/posBWQX24qZ3PxJZECgYEA0MmavganExGCupl/sCRMOj9VvPgpzv4SMsspfSE/DllIZTWQWk16oE8S4p65tib1fLhAcLMoRIch/E9s9BJaS3qml/RjbabTQNrG9jk2vFZX0uyklsRvvdNB3q5XT1zU6qrELv/eR6xfQrNFpwJ9x1GtT9UPOqEsIi2cJQwOIv8CgYAA4DpbRvWoq3nbhWu8OzlUY0IoIyseqTxUGGBtx81PbMxy9FAm1oSvoarWddGDqbH9ECMP+0TGM+N6j8TwtfHDw88ZkS6Jhio9cVdBd+2RHg0Qb2dn+CO0BIMkpeEG6Pwh366LEhtzplXWEF2FGep6Y0/fH0L7JruXiQ6nqnSd4QKBgEAhTJiFrpfazw7Fy0StQYS6o3kxuJXN0IUthgbbSWT845HCzB4QolPPNfvJyT075jdy2MhFH189KqE3PD4TzQxWFgmilU++6DCJgodqt3dOBhfRfBSbLb9evmLJpiPIXdXesffFu97EAVaZfhF4YG3yloto5A6cJtQwsj9m3oi9AoGBAIl17vtmDatX9O8EDZUtVsH8i5HzopXGK/Yyyy3ZkN1uhwtnSwUvWIZxFJuAL7W9mn/yoe68VdAaHwrEfaJ3A27VKSqYBqfQg5cnBdUemB3frhQRKGABN9Q2kM7VtV4r5Kg8K+sf+JohU1uxG0uDOFYLM6hRf3sbqMlqtVuvHcvx" ],
-        "keyUse" : [ "SIG" ],
-        "certificate" : [ "MIICnzCCAYcCBgGKy78QizANBgkqhkiG9w0BAQsFADATMREwDwYDVQQDDAhzdGFja2xvazAeFw0yMzA5MjUwOTQ4MzFaFw0zMzA5MjUwOTUwMTFaMBMxETAPBgNVBAMMCHN0YWNrbG9rMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArWUt4nsk6bC1v8TMHcCUgVVtfwUl5p5sBh/AOIb+BscZMWTwdHkgERCnVKRpqeFtJG/W1gi9EoiMRsGhKnilBQs048e2cUOORhbBHMnPNuVGpOBqJoeYRux3HYlpzJjIvK1jwH3RJuSzDRzqCx/GS/ckunP8NsxF7ML6O7nNqBNx8752acyeW5+u7GNTMfUYIa1coG2t9xrWlLHoykfba60W0DOijdOhAJKGwFVo5bjZeXxVzDP+ALNSG/iEe2LQhzXLTeyVLX73UfXMWQspX057Lsw1DZT4mGcYdj1pH7H9X4Kkcsbg7cosect46Bts21urK1LmQ2ZssWlaXh+tbwIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQArb/yOcyIN9GDcUsvsQ3pRKYMpmNKXuZepzd9e38pEnB1fV6Xq18t5IUokDRyAE38WCg9I0roQdCCWREM+mJit+MxfXoP0/QDGC1C0rjtlxEnI19yMQTAd0I6u/VrrfQz34l0R/O/8Knw1KhTMdncaJQsWuQRjOUw3FsvizyHq1gCkagfef51GjuMEJLzOfcuTYAubaTX7qe6Y8LV3OuGeh+Cahg8H4tUgOosQ2/RW133ZVUTHfObohFF91yDOEvmTA5bmV3zYvbm9nuUhnFKbOxTto9JvV9RrvbTjSfliQFnaUqKkWEqBI5MA7/Jm2Eh8aLSHAgu92cYg3cL12OD8" ],
         "priority" : [ "100" ]
       }
     }, {
@@ -1266,10 +1263,9 @@
       "providerId" : "rsa-enc-generated",
       "subComponents" : { },
       "config" : {
-        "privateKey" : [ "MIIEowIBAAKCAQEAuiOiyxQiuGJ4Q77DesYKaiOknPYKkLUiP+yXETQPzjJ0dDJO2HgFv6qTy/Ccca4jrUIqM0xAbFj8+AVcCMwtlMMRjcWUD4DpHMyqyaHPPDlJGaEpNbXVUPHA6XWbEDF/6RpcDAkEy2ums2MguqH8Fd1WptPsCbApS9mo0he8BD92/x+Fx5tw10D2YFTrFllfKc7Rd06erYgm5EVx3RSUrBpxW/rzKMby83NW1lQ6qGM5BCwzw6pj3JRGSCxA6J2KPK11WD5eRnqQGfcPUhuJwhgHXCXNCUZDGQmcEpseKPthyghKBwOtsyjInLf5rACgGh8bTlAaKAI3OwNso/P2MwIDAQABAoIBADrQUrpPCO9wsaZaKsLqu1SxIWy08z6o9QL0uwDlDc9tss0aLj6IoexfNebdBlmHF9/BRbtCryJs9bVaYCupdAeKoUvF75P8e+utIZOnLGdPhHD0MqS1aQrz8Cv0DIRP16YsPYRR/zFVOO16d1dxIkk4UA5TbMPc5ReB1S1Y8X/3kZD8ajfRlBiU/fMkFsyfWd4Iie89zFIIHoOmMfGApYbr4svgQAvjJv1lUQ8VjIC8IS6IH3bDpBzivxJg/UYm0uKUzUYX3beDI1lAnCgvScbx868EZec0uoZNQUi9SQkxGGcFF48EvaMUC/ZEKZSpmX6gC/6yPeMPfenyC2gOi30CgYEA4u+6r6drOa2N5wG+W82wyDhdtABmgE8GudN2CTwOw3xLuvcimHFmVgFkqV9c8RIy6gvKyl3FQqhMbDS/SDv77Cwiwl3g35E5BsjW5CXc6p96bgHeN4+wDMQZevDK7MeiDpwRkxusTvj+55FfUwH9aCH5bZds+78qowlOelrV9n0CgYEA0fpXKr7NzbHpB2TX2QMd3kPKb4+/Ird8lE0srX+9xfd/IAYF2ytAEE0PtEpGCV2CqdcNnIThemHLq1sVy0ugXLd6kuXtkNCN+GcszFj2COBeDzspae0Ygw3cjumkgYivcS6steqjm9NkvlHkcAkfX2dJfeLrivy1EzJYEUikTm8CgYEAw/88g1zbNNN6TVuqJuu9lQ9pjn8SCBs4ueGyfkNKlPeTCIVNcc/vDLTjVY0xXlvTcWSB3smiBvIIHyRnWGHGMLHly2z9PNnWIM/xGNbCuDjIqp4eaGpHKJ9tSksRV/MLOgb8/srVxNc0gJeDdtOvIvLE1CwGSl9O2cS97NrrFJkCgYA4lcr5tPOHFAOlP3K/g4yAAirCh61NcL78xBNfKgZ9G+ZBPf5EAtK/0dSClGVtTqrQlCiR3mlY7pPROLmV0GqFsdgxUA8GMH2hzEQRSYP7/mK6ngnaBs/NOWYPiT0Qv0HwMVDPsUynyH7knvL9kifHMPFoIEeza8hsROvgtH+6twKBgAUoHM+folz6NSpR1YYxNkqR4vg7EoXWcveiC4h4Gg5nA9UeC2pYBy4drZaLt3OhHlB9IZsUMGZ8+ZGXsQIdsc/gjxAU1nuqzDbBVRBXpnYHL25hjyJvsuHeycjyp3Qavi1MnSaWRpzac+XTBhMOe2T02E1SmYtMlgRSEtTI3Xef" ],
-        "keyUse" : [ "ENC" ],
-        "certificate" : [ "MIICnzCCAYcCBgGKy78RMDANBgkqhkiG9w0BAQsFADATMREwDwYDVQQDDAhzdGFja2xvazAeFw0yMzA5MjUwOTQ4MzFaFw0zMzA5MjUwOTUwMTFaMBMxETAPBgNVBAMMCHN0YWNrbG9rMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuiOiyxQiuGJ4Q77DesYKaiOknPYKkLUiP+yXETQPzjJ0dDJO2HgFv6qTy/Ccca4jrUIqM0xAbFj8+AVcCMwtlMMRjcWUD4DpHMyqyaHPPDlJGaEpNbXVUPHA6XWbEDF/6RpcDAkEy2ums2MguqH8Fd1WptPsCbApS9mo0he8BD92/x+Fx5tw10D2YFTrFllfKc7Rd06erYgm5EVx3RSUrBpxW/rzKMby83NW1lQ6qGM5BCwzw6pj3JRGSCxA6J2KPK11WD5eRnqQGfcPUhuJwhgHXCXNCUZDGQmcEpseKPthyghKBwOtsyjInLf5rACgGh8bTlAaKAI3OwNso/P2MwIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQBPD8BayrmV/Re/3U9qcf9mcZ9aYqmPUL89Jh9UpeW2xfdH53t6KSUWOnyy3t+9Ep0hKCaeT0/QZ510Po2T/Sdp0qXxQyYhStbD3Yov/ezVrpSbFnkxP3TjKTqmN1sx7vf1/utqbBavnUocPBtnwBnJA4TkYUcWOH0c3pJWiT/oeAYLduoz0w03YMTQb3O2MvR5DI8Px7PXCj02EPsm+o+LSgztZoEh7lKP3xgYv50j/N3tCJ0MSXTmypFJjgmKQ8eOIJkgRqtQyM1sa5QKW0eTXsc487DM1zyig+R51CrIVHRSKJPp9CoNwB/xPc1tK51UziE1XzpkCXWAErXSbYIh" ],
-        "priority" : [ "100" ],
+          "priority": [
+            "100"
+          ],
         "algorithm" : [ "RSA-OAEP" ]
       }
     }, {
@@ -1278,9 +1274,9 @@
       "providerId" : "hmac-generated",
       "subComponents" : { },
       "config" : {
-        "kid" : [ "ddbbb7ba-6050-4e2f-bf92-9e4ed8d5b043" ],
-        "secret" : [ "_DwprdW2tMW5wk4yJ-TcW2kBf8djnUOh6n0U_lxptNjmqR-TvY7lEAJEOb4K33C1M230ogrJwPwoWckm0fyGhQ" ],
-        "priority" : [ "100" ],
+          "priority": [
+            "100"
+          ],
         "algorithm" : [ "HS256" ]
       }
     }, {
@@ -1289,9 +1285,9 @@
       "providerId" : "aes-generated",
       "subComponents" : { },
       "config" : {
-        "kid" : [ "b5233a14-db0b-4464-b911-8065901ad886" ],
-        "secret" : [ "D8yWtp-kjXnxFyPI_NxxmA" ],
-        "priority" : [ "100" ]
+          "priority": [
+            "100"
+          ]
       }
     } ]
   },
