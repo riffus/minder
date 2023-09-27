@@ -100,7 +100,7 @@ will be saved to $XDG_CONFIG_HOME/mediator/credentials.json`,
 		util.ExitNicelyOnError(err, "Error getting random port")
 		redirectURI := fmt.Sprintf("http://localhost:%v%v", port, callbackPath)
 		provider, err := rp.NewRelyingPartyOIDC(issuer, clientID, "", redirectURI, scopes, options...)
-		util.ExitNicelyOnError(err, "error creating provider")
+		util.ExitNicelyOnError(err, "error creating identity provider reference")
 
 		state := func() string {
 			return uuid.New().String()
