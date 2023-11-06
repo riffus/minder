@@ -19,7 +19,7 @@ minder auth revoke_provider [flags]
   -a, --all                 Revoke all tokens
   -h, --help                help for revoke_provider
   -g, --project-id string   ID of the project for repo registration
-  -n, --provider string     Name for the provider to revoke tokens for
+  -p, --provider string     Name for the provider to revoke tokens for
 ```
 
 ### Options inherited from parent commands
