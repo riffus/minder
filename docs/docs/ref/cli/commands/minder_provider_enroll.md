@@ -21,7 +21,7 @@ minder provider enroll [flags]
   -h, --help                help for enroll
   -o, --owner string        Owner to filter on for provider resources
   -g, --project-id string   ID of the project for enrolling the provider
-  -n, --provider string     Name for the provider to enroll
+  -p, --provider string     Name for the provider to enroll
   -t, --token string        Personal Access Token (PAT) to use for enrollment
 ```
 
