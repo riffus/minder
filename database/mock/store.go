@@ -464,6 +464,20 @@ func (mr *MockStoreMockRecorder) DeleteProfile(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProfile", reflect.TypeOf((*MockStore)(nil).DeleteProfile), arg0, arg1)
 }
 
+// DeleteProfileForEntity mocks base method.
+func (m *MockStore) DeleteProfileForEntity(arg0 context.Context, arg1 db.DeleteProfileForEntityParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteProfileForEntity", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteProfileForEntity indicates an expected call of DeleteProfileForEntity.
+func (mr *MockStoreMockRecorder) DeleteProfileForEntity(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProfileForEntity", reflect.TypeOf((*MockStore)(nil).DeleteProfileForEntity), arg0, arg1)
+}
+
 // DeleteProject mocks base method.
 func (m *MockStore) DeleteProject(arg0 context.Context, arg1 uuid.UUID) ([]db.DeleteProjectRow, error) {
 	m.ctrl.T.Helper()
@@ -533,6 +547,20 @@ func (m *MockStore) DeleteRole(arg0 context.Context, arg1 int32) error {
 func (mr *MockStoreMockRecorder) DeleteRole(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockStore)(nil).DeleteRole), arg0, arg1)
+}
+
+// DeleteRuleInstantiation mocks base method.
+func (m *MockStore) DeleteRuleInstantiation(arg0 context.Context, arg1 db.DeleteRuleInstantiationParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRuleInstantiation", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRuleInstantiation indicates an expected call of DeleteRuleInstantiation.
+func (mr *MockStoreMockRecorder) DeleteRuleInstantiation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleInstantiation", reflect.TypeOf((*MockStore)(nil).DeleteRuleInstantiation), arg0, arg1)
 }
 
 // DeleteRuleType mocks base method.
@@ -710,6 +738,21 @@ func (mr *MockStoreMockRecorder) GetChildrenProjects(arg0, arg1 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChildrenProjects", reflect.TypeOf((*MockStore)(nil).GetChildrenProjects), arg0, arg1)
 }
 
+// GetEntityProfileByProjectAndName mocks base method.
+func (m *MockStore) GetEntityProfileByProjectAndName(arg0 context.Context, arg1 db.GetEntityProfileByProjectAndNameParams) ([]db.GetEntityProfileByProjectAndNameRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEntityProfileByProjectAndName", arg0, arg1)
+	ret0, _ := ret[0].([]db.GetEntityProfileByProjectAndNameRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEntityProfileByProjectAndName indicates an expected call of GetEntityProfileByProjectAndName.
+func (mr *MockStoreMockRecorder) GetEntityProfileByProjectAndName(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEntityProfileByProjectAndName", reflect.TypeOf((*MockStore)(nil).GetEntityProfileByProjectAndName), arg0, arg1)
+}
+
 // GetFeatureInProject mocks base method.
 func (m *MockStore) GetFeatureInProject(arg0 context.Context, arg1 db.GetFeatureInProjectParams) (json.RawMessage, error) {
 	m.ctrl.T.Helper()
@@ -815,6 +858,36 @@ func (mr *MockStoreMockRecorder) GetProfileByID(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByID", reflect.TypeOf((*MockStore)(nil).GetProfileByID), arg0, arg1)
 }
 
+// GetProfileByIDAndLock mocks base method.
+func (m *MockStore) GetProfileByIDAndLock(arg0 context.Context, arg1 uuid.UUID) (db.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfileByIDAndLock", arg0, arg1)
+	ret0, _ := ret[0].(db.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfileByIDAndLock indicates an expected call of GetProfileByIDAndLock.
+func (mr *MockStoreMockRecorder) GetProfileByIDAndLock(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByIDAndLock", reflect.TypeOf((*MockStore)(nil).GetProfileByIDAndLock), arg0, arg1)
+}
+
+// GetProfileByNameAndLock mocks base method.
+func (m *MockStore) GetProfileByNameAndLock(arg0 context.Context, arg1 db.GetProfileByNameAndLockParams) (db.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfileByNameAndLock", arg0, arg1)
+	ret0, _ := ret[0].(db.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfileByNameAndLock indicates an expected call of GetProfileByNameAndLock.
+func (mr *MockStoreMockRecorder) GetProfileByNameAndLock(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByNameAndLock", reflect.TypeOf((*MockStore)(nil).GetProfileByNameAndLock), arg0, arg1)
+}
+
 // GetProfileByProjectAndID mocks base method.
 func (m *MockStore) GetProfileByProjectAndID(arg0 context.Context, arg1 db.GetProfileByProjectAndIDParams) ([]db.GetProfileByProjectAndIDRow, error) {
 	m.ctrl.T.Helper()
@@ -828,21 +901,6 @@ func (m *MockStore) GetProfileByProjectAndID(arg0 context.Context, arg1 db.GetPr
 func (mr *MockStoreMockRecorder) GetProfileByProjectAndID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByProjectAndID", reflect.TypeOf((*MockStore)(nil).GetProfileByProjectAndID), arg0, arg1)
-}
-
-// GetProfileByProjectAndName mocks base method.
-func (m *MockStore) GetProfileByProjectAndName(arg0 context.Context, arg1 db.GetProfileByProjectAndNameParams) ([]db.GetProfileByProjectAndNameRow, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetProfileByProjectAndName", arg0, arg1)
-	ret0, _ := ret[0].([]db.GetProfileByProjectAndNameRow)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetProfileByProjectAndName indicates an expected call of GetProfileByProjectAndName.
-func (mr *MockStoreMockRecorder) GetProfileByProjectAndName(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByProjectAndName", reflect.TypeOf((*MockStore)(nil).GetProfileByProjectAndName), arg0, arg1)
 }
 
 // GetProfileStatusByIdAndProject mocks base method.
@@ -1606,6 +1664,36 @@ func (m *MockStore) UpdateOrganization(arg0 context.Context, arg1 db.UpdateOrgan
 func (mr *MockStoreMockRecorder) UpdateOrganization(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOrganization", reflect.TypeOf((*MockStore)(nil).UpdateOrganization), arg0, arg1)
+}
+
+// UpdateProfile mocks base method.
+func (m *MockStore) UpdateProfile(arg0 context.Context, arg1 db.UpdateProfileParams) (db.Profile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateProfile", arg0, arg1)
+	ret0, _ := ret[0].(db.Profile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateProfile indicates an expected call of UpdateProfile.
+func (mr *MockStoreMockRecorder) UpdateProfile(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockStore)(nil).UpdateProfile), arg0, arg1)
+}
+
+// UpdateProfileForEntity mocks base method.
+func (m *MockStore) UpdateProfileForEntity(arg0 context.Context, arg1 db.UpdateProfileForEntityParams) (db.EntityProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateProfileForEntity", arg0, arg1)
+	ret0, _ := ret[0].(db.EntityProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateProfileForEntity indicates an expected call of UpdateProfileForEntity.
+func (mr *MockStoreMockRecorder) UpdateProfileForEntity(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfileForEntity", reflect.TypeOf((*MockStore)(nil).UpdateProfileForEntity), arg0, arg1)
 }
 
 // UpdateRepository mocks base method.

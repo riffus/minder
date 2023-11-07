@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -109,7 +110,6 @@ func validateActionType(r string) db.NullActionType {
 }
 
 // CreateProfile creates a profile for a group
-// nolint: gocyclo
 func (s *Server) CreateProfile(ctx context.Context,
 	cpr *minderv1.CreateProfileRequest) (*minderv1.CreateProfileResponse, error) {
 	in := cpr.GetProfile()
@@ -133,52 +133,7 @@ func (s *Server) CreateProfile(ctx context.Context,
 		return nil, status.Errorf(codes.InvalidArgument, "invalid profile: %v", err)
 	}
 
-	// We capture the rule instantiations here so we can
-	// track them in the db later.
-	ruleIDs := map[string]uuid.UUID{}
-
-	err = engine.TraverseAllRulesForPipeline(in, func(r *minderv1.Profile_Rule) error {
-		// TODO: This will need to be updated to support
-		// the hierarchy tree once that's settled in.
-		rtdb, err := s.store.GetRuleTypeByName(ctx, db.GetRuleTypeByNameParams{
-			Provider:  provider.Name,
-			ProjectID: entityCtx.GetProject().GetID(),
-			Name:      r.GetType(),
-		})
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &engine.RuleValidationError{
-					Err:      fmt.Sprintf("cannot find rule type %s", r.GetType()),
-					RuleType: r.GetType(),
-				}
-			}
-
-			return fmt.Errorf("error getting rule type %s: %w", r.GetType(), err)
-		}
-
-		rtyppb, err := engine.RuleTypePBFromDB(&rtdb, entityCtx)
-		if err != nil {
-			return fmt.Errorf("cannot convert rule type %s to pb: %w", rtdb.Name, err)
-		}
-
-		rval, err := engine.NewRuleValidator(rtyppb)
-		if err != nil {
-			return fmt.Errorf("error creating rule validator: %w", err)
-		}
-
-		if err := rval.ValidateRuleDefAgainstSchema(r.Def.AsMap()); err != nil {
-			return fmt.Errorf("error validating rule: %w", err)
-		}
-
-		if err := rval.ValidateParamsAgainstSchema(r.GetParams()); err != nil {
-			return fmt.Errorf("error validating rule params: %w", err)
-		}
-
-		ruleIDs[r.GetType()] = rtdb.ID
-
-		return nil
-	})
-
+	ruleIDs, err := s.getAndValidateRulesFromProfile(ctx, in, entityCtx)
 	if err != nil {
 		var violation *engine.RuleValidationError
 		if errors.As(err, &violation) {
@@ -279,6 +234,10 @@ func createProfileRulesForEntity(
 		Entity:          entities.EntityTypeToDB(entity),
 		ContextualRules: marshalled,
 	})
+	if err != nil {
+		log.Printf("error creating profile for entity %s: %v", entity, err)
+		return status.Errorf(codes.Internal, "error creating profile")
+	}
 
 	for idx := range ruleIDs {
 		ruleID := ruleIDs[idx]
@@ -364,28 +323,47 @@ func (s *Server) GetProfileById(ctx context.Context,
 		return nil, util.UserVisibleError(codes.InvalidArgument, "invalid profile ID")
 	}
 
-	profiles, err := s.store.GetProfileByProjectAndID(ctx, db.GetProfileByProjectAndIDParams{
-		ProjectID: entityCtx.Project.ID,
-		ID:        parsedProfileID,
-	})
+	prof, err := getProfilePBFromDB(ctx, parsedProfileID, entityCtx, s.store)
 	if err != nil {
-		return nil, status.Errorf(codes.Unknown, "failed to get profile: %s", err)
+		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "not found") {
+			return nil, util.UserVisibleError(codes.NotFound, "profile not found")
+		}
+
+		return nil, status.Errorf(codes.Internal, "failed to get profile: %s", err)
 	}
 
-	var resp minderv1.GetProfileByIdResponse
+	return &minderv1.GetProfileByIdResponse{
+		Profile: prof,
+	}, nil
+}
+
+func getProfilePBFromDB(
+	ctx context.Context,
+	id uuid.UUID,
+	entityCtx *engine.EntityContext,
+	querier db.ExtendQuerier,
+) (*minderv1.Profile, error) {
+	profiles, err := querier.GetProfileByProjectAndID(ctx, db.GetProfileByProjectAndIDParams{
+		ProjectID: entityCtx.Project.ID,
+		ID:        id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	pols := engine.MergeDatabaseGetIntoProfiles(profiles, entityCtx)
 	if len(pols) == 0 {
-		return nil, status.Errorf(codes.NotFound, "profile not found")
+		return nil, fmt.Errorf("profile not found")
 	} else if len(pols) > 1 {
-		return nil, status.Errorf(codes.Unknown, "failed to get profile: %s", err)
+		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
 	// This should be only one profile
 	for _, profile := range pols {
-		resp.Profile = profile
+		return profile, nil
 	}
 
-	return &resp, nil
+	return nil, fmt.Errorf("profile not found")
 }
 
 func getRuleEvalEntityInfo(
@@ -574,4 +552,343 @@ func (s *Server) GetProfileStatusByProject(ctx context.Context,
 	}
 
 	return res, nil
+}
+
+// UpdateProfile updates a profile for a project
+//
+//nolint:gocyclo
+func (s *Server) UpdateProfile(ctx context.Context,
+	cpr *minderv1.UpdateProfileRequest) (*minderv1.UpdateProfileResponse, error) {
+	in := cpr.GetProfile()
+
+	ctx, err := s.authAndContextValidation(ctx, in.GetContext())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "error ensuring default group: %v", err)
+	}
+
+	entityCtx := engine.EntityFromContext(ctx)
+
+	if err := in.Validate(); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid profile: %v", err)
+	}
+
+	tx, err := s.store.BeginTransaction()
+	if err != nil {
+		log.Printf("error starting transaction: %v", err)
+		return nil, status.Errorf(codes.Internal, "error creating profile")
+	}
+	defer s.store.Rollback(tx)
+
+	qtx := s.store.GetQuerierWithTransaction(tx)
+
+	// Get object and ensure we lock it for update
+	oldDBProfile, err := getProfileFromPBForUpdateWithQuerier(ctx, in, entityCtx, qtx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.UserVisibleError(codes.NotFound, "profile not found")
+		}
+
+		return nil, status.Errorf(codes.Internal, "error fetching profile to be updated: %v", err)
+	}
+
+	// validate update
+	if err := validateProfileUpdate(oldDBProfile, in, entityCtx); err != nil {
+		return nil, util.UserVisibleError(codes.InvalidArgument, "invalid profile update: %v", err)
+	}
+
+	ruleIDs, err := s.getAndValidateRulesFromProfile(ctx, in, entityCtx)
+	if err != nil {
+		var violation *engine.RuleValidationError
+		if errors.As(err, &violation) {
+			log.Printf("error validating rule: %v", violation)
+			return nil, util.UserVisibleError(codes.InvalidArgument,
+				"profile contained invalid rule '%s': %s", violation.RuleType, violation.Err)
+		}
+
+		log.Printf("error getting rule type: %v", err)
+		return nil, status.Errorf(codes.Internal, "error creating profile")
+	}
+
+	oldProfile, err := getProfilePBFromDB(ctx, oldDBProfile.ID, entityCtx, qtx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "not found") {
+			return nil, util.UserVisibleError(codes.NotFound, "profile not found")
+		}
+
+		return nil, status.Errorf(codes.Internal, "failed to get profile: %s", err)
+	}
+
+	oldRuleIDs, err := s.getRulesFromProfile(ctx, oldProfile, entityCtx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, util.UserVisibleError(codes.NotFound, "profile not found")
+		}
+		return nil, status.Errorf(codes.Internal, "error fetching profile to be updated: %v", err)
+	}
+
+	// Update top-level profile db object
+	profile, err := qtx.UpdateProfile(ctx, db.UpdateProfileParams{
+		ID:        oldDBProfile.ID,
+		Remediate: validateActionType(in.GetRemediate()),
+		Alert:     validateActionType(in.GetAlert()),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error updating profile: %v", err)
+	}
+
+	// Create entity rules entries
+	for ent, entRules := range map[minderv1.Entity][]*minderv1.Profile_Rule{
+		minderv1.Entity_ENTITY_REPOSITORIES:       in.GetRepository(),
+		minderv1.Entity_ENTITY_ARTIFACTS:          in.GetArtifact(),
+		minderv1.Entity_ENTITY_BUILD_ENVIRONMENTS: in.GetBuildEnvironment(),
+		minderv1.Entity_ENTITY_PULL_REQUESTS:      in.GetPullRequest(),
+	} {
+		if err := updateProfileRulesForEntity(ctx, ent, &profile, qtx, entRules, ruleIDs, oldRuleIDs); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, ruleID := range oldRuleIDs {
+		if err := qtx.DeleteRuleInstantiation(ctx, db.DeleteRuleInstantiationParams{
+			EntityProfileID: profile.ID,
+			RuleTypeID:      ruleID,
+		}); err != nil {
+			log.Printf("error deleting rule instantiation: %v", err)
+			return nil, status.Errorf(codes.Internal, "error creating profile")
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("error committing transaction: %v", err)
+		return nil, status.Errorf(codes.Internal, "error creating profile")
+	}
+
+	idStr := profile.ID.String()
+	in.Id = &idStr
+	resp := &minderv1.UpdateProfileResponse{
+		Profile: in,
+	}
+
+	// re-trigger profile evaluation
+	msg, err := reconcilers.NewProfileInitMessage(entityCtx.Provider.Name, entityCtx.Project.ID)
+	if err != nil {
+		log.Printf("error creating reconciler event: %v", err)
+		// error is non-fatal
+		return resp, nil
+	}
+
+	// This is a non-fatal error, so we'll just log it and continue with the next ones
+	if err := s.evt.Publish(reconcilers.InternalProfileInitEventTopic, msg); err != nil {
+		log.Printf("error publishing reconciler event: %v", err)
+	}
+
+	return resp, nil
+}
+
+func (s *Server) getAndValidateRulesFromProfile(
+	ctx context.Context,
+	prof *minderv1.Profile,
+	entityCtx *engine.EntityContext,
+) (map[string]uuid.UUID, error) {
+	// We capture the rule instantiations here so we can
+	// track them in the db later.
+	ruleIDs := map[string]uuid.UUID{}
+
+	err := engine.TraverseAllRulesForPipeline(prof, func(r *minderv1.Profile_Rule) error {
+		// TODO: This will need to be updated to support
+		// the hierarchy tree once that's settled in.
+		rtdb, err := s.store.GetRuleTypeByName(ctx, db.GetRuleTypeByNameParams{
+			Provider:  entityCtx.GetProvider().Name,
+			ProjectID: entityCtx.GetProject().GetID(),
+			Name:      r.GetType(),
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &engine.RuleValidationError{
+					Err:      fmt.Sprintf("cannot find rule type %s", r.GetType()),
+					RuleType: r.GetType(),
+				}
+			}
+
+			return fmt.Errorf("error getting rule type %s: %w", r.GetType(), err)
+		}
+
+		rtyppb, err := engine.RuleTypePBFromDB(&rtdb, entityCtx)
+		if err != nil {
+			return fmt.Errorf("cannot convert rule type %s to pb: %w", rtdb.Name, err)
+		}
+
+		rval, err := engine.NewRuleValidator(rtyppb)
+		if err != nil {
+			return fmt.Errorf("error creating rule validator: %w", err)
+		}
+
+		if err := rval.ValidateRuleDefAgainstSchema(r.Def.AsMap()); err != nil {
+			return fmt.Errorf("error validating rule: %w", err)
+		}
+
+		if err := rval.ValidateParamsAgainstSchema(r.GetParams()); err != nil {
+			return fmt.Errorf("error validating rule params: %w", err)
+		}
+
+		ruleIDs[r.GetType()] = rtdb.ID
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ruleIDs, nil
+}
+
+func (s *Server) getRulesFromProfile(
+	ctx context.Context,
+	prof *minderv1.Profile,
+	entityCtx *engine.EntityContext,
+) (map[string]uuid.UUID, error) {
+	// We capture the rule instantiations here so we can
+	// track them in the db later.
+	ruleIDs := map[string]uuid.UUID{}
+
+	err := engine.TraverseAllRulesForPipeline(prof, func(r *minderv1.Profile_Rule) error {
+		// TODO: This will need to be updated to support
+		// the hierarchy tree once that's settled in.
+		rtdb, err := s.store.GetRuleTypeByName(ctx, db.GetRuleTypeByNameParams{
+			Provider:  entityCtx.GetProvider().Name,
+			ProjectID: entityCtx.GetProject().GetID(),
+			Name:      r.GetType(),
+		})
+		if err != nil {
+			return fmt.Errorf("error getting rule type %s: %w", r.GetType(), err)
+		}
+
+		ruleIDs[r.GetType()] = rtdb.ID
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ruleIDs, nil
+}
+
+func updateProfileRulesForEntity(
+	ctx context.Context,
+	entity minderv1.Entity,
+	profile *db.Profile,
+	qtx db.Querier,
+	rules []*minderv1.Profile_Rule,
+	ruleIDs map[string]uuid.UUID,
+	oldruleIDs map[string]uuid.UUID,
+) error {
+	if len(rules) == 0 {
+		return qtx.DeleteProfileForEntity(ctx, db.DeleteProfileForEntityParams{
+			ProfileID: profile.ID,
+			Entity:    entities.EntityTypeToDB(entity),
+		})
+	}
+
+	marshalled, err := json.Marshal(rules)
+	if err != nil {
+		log.Printf("error marshalling %s rules: %v", entity, err)
+		return status.Errorf(codes.Internal, "error creating profile")
+	}
+	entProf, err := qtx.UpdateProfileForEntity(ctx, db.UpdateProfileForEntityParams{
+		ProfileID:       profile.ID,
+		Entity:          entities.EntityTypeToDB(entity),
+		ContextualRules: marshalled,
+	})
+	if err != nil {
+		log.Printf("error updating profile for entity %s: %v", entity, err)
+		return err
+	}
+
+	for idx := range ruleIDs {
+		ruleID := ruleIDs[idx]
+
+		_, err := qtx.UpsertRuleInstantiation(ctx, db.UpsertRuleInstantiationParams{
+			EntityProfileID: entProf.ID,
+			RuleTypeID:      ruleID,
+		})
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Printf("the rule instantiation for rule already existed.")
+		} else if err != nil {
+			log.Printf("error creating rule instantiation: %v", err)
+			return status.Errorf(codes.Internal, "error updating profile")
+		}
+
+		// Remove the rule from the old rule IDs so we
+		// can delete the ones that are no longer needed
+		delete(oldruleIDs, idx)
+	}
+
+	return err
+}
+
+func getProfileFromPBForUpdateWithQuerier(
+	ctx context.Context,
+	prof *minderv1.Profile,
+	entityCtx *engine.EntityContext,
+	querier db.ExtendQuerier,
+) (*db.Profile, error) {
+	if prof.GetId() != "" {
+		return getProfileFromPBForUpdateByID(ctx, prof, querier)
+	}
+
+	return getProfileFromPBForUpdateByName(ctx, prof, entityCtx, querier)
+}
+
+func getProfileFromPBForUpdateByID(
+	ctx context.Context,
+	prof *minderv1.Profile,
+	querier db.ExtendQuerier,
+) (*db.Profile, error) {
+	id, err := uuid.Parse(prof.GetId())
+	if err != nil {
+		return nil, util.UserVisibleError(codes.InvalidArgument, "invalid profile ID")
+	}
+
+	pdb, err := querier.GetProfileByIDAndLock(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pdb, nil
+}
+
+func getProfileFromPBForUpdateByName(
+	ctx context.Context,
+	prof *minderv1.Profile,
+	entityCtx *engine.EntityContext,
+	querier db.ExtendQuerier,
+) (*db.Profile, error) {
+	pdb, err := querier.GetProfileByNameAndLock(ctx, db.GetProfileByNameAndLockParams{
+		Name:      prof.GetName(),
+		ProjectID: entityCtx.GetProject().ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pdb, nil
+}
+
+func validateProfileUpdate(old *db.Profile, new *minderv1.Profile, entityCtx *engine.EntityContext) error {
+	if old.Name != new.Name {
+		return util.UserVisibleError(codes.InvalidArgument, "cannot change profile name")
+	}
+
+	if old.ProjectID != entityCtx.Project.ID {
+		return util.UserVisibleError(codes.InvalidArgument, "cannot change profile project")
+	}
+
+	if old.Provider != entityCtx.Provider.Name {
+		return util.UserVisibleError(codes.InvalidArgument, "cannot change profile provider")
+	}
+
+	return nil
 }
