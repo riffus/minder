@@ -563,6 +563,20 @@ func (mr *MockStoreMockRecorder) DeleteRuleInstantiation(arg0, arg1 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleInstantiation", reflect.TypeOf((*MockStore)(nil).DeleteRuleInstantiation), arg0, arg1)
 }
 
+// DeleteRuleStatusesForProfileAndRuleType mocks base method.
+func (m *MockStore) DeleteRuleStatusesForProfileAndRuleType(arg0 context.Context, arg1 db.DeleteRuleStatusesForProfileAndRuleTypeParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRuleStatusesForProfileAndRuleType", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRuleStatusesForProfileAndRuleType indicates an expected call of DeleteRuleStatusesForProfileAndRuleType.
+func (mr *MockStoreMockRecorder) DeleteRuleStatusesForProfileAndRuleType(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleStatusesForProfileAndRuleType", reflect.TypeOf((*MockStore)(nil).DeleteRuleStatusesForProfileAndRuleType), arg0, arg1)
+}
+
 // DeleteRuleType mocks base method.
 func (m *MockStore) DeleteRuleType(arg0 context.Context, arg1 uuid.UUID) error {
 	m.ctrl.T.Helper()

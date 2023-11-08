@@ -675,6 +675,17 @@ func (s *Server) UpdateProfile(ctx context.Context,
 			log.Printf("error deleting rule instantiation: %v", err)
 			return nil, status.Errorf(codes.Internal, "error creating profile")
 		}
+
+		log.Printf("deleting rule evaluations for rule %s and profile %s", rule.RuleID, profile.ID)
+		// Note this is done outside of the transaction to ensure we don't
+		// clash with a running evaluation.
+		if err := s.store.DeleteRuleStatusesForProfileAndRuleType(ctx, db.DeleteRuleStatusesForProfileAndRuleTypeParams{
+			ProfileID:  profile.ID,
+			RuleTypeID: rule.RuleID,
+		}); err != nil {
+			log.Printf("error deleting rule evaluations: %v", err)
+			return nil, status.Errorf(codes.Internal, "error creating profile")
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
