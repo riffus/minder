@@ -903,6 +903,21 @@ func (mr *MockStoreMockRecorder) GetProfileByProjectAndID(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileByProjectAndID", reflect.TypeOf((*MockStore)(nil).GetProfileByProjectAndID), arg0, arg1)
 }
 
+// GetProfileForEntity mocks base method.
+func (m *MockStore) GetProfileForEntity(arg0 context.Context, arg1 db.GetProfileForEntityParams) (db.EntityProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetProfileForEntity", arg0, arg1)
+	ret0, _ := ret[0].(db.EntityProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetProfileForEntity indicates an expected call of GetProfileForEntity.
+func (mr *MockStoreMockRecorder) GetProfileForEntity(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfileForEntity", reflect.TypeOf((*MockStore)(nil).GetProfileForEntity), arg0, arg1)
+}
+
 // GetProfileStatusByIdAndProject mocks base method.
 func (m *MockStore) GetProfileStatusByIdAndProject(arg0 context.Context, arg1 db.GetProfileStatusByIdAndProjectParams) (db.GetProfileStatusByIdAndProjectRow, error) {
 	m.ctrl.T.Helper()

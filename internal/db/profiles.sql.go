@@ -347,6 +347,29 @@ func (q *Queries) GetProfileByProjectAndID(ctx context.Context, arg GetProfileBy
 	return items, nil
 }
 
+const getProfileForEntity = `-- name: GetProfileForEntity :one
+SELECT id, entity, profile_id, contextual_rules, created_at, updated_at FROM entity_profiles WHERE profile_id = $1 AND entity = $2
+`
+
+type GetProfileForEntityParams struct {
+	ProfileID uuid.UUID `json:"profile_id"`
+	Entity    Entities  `json:"entity"`
+}
+
+func (q *Queries) GetProfileForEntity(ctx context.Context, arg GetProfileForEntityParams) (EntityProfile, error) {
+	row := q.db.QueryRowContext(ctx, getProfileForEntity, arg.ProfileID, arg.Entity)
+	var i EntityProfile
+	err := row.Scan(
+		&i.ID,
+		&i.Entity,
+		&i.ProfileID,
+		&i.ContextualRules,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listProfilesByProjectID = `-- name: ListProfilesByProjectID :many
 SELECT profiles.id, name, provider, project_id, remediate, alert, profiles.created_at, profiles.updated_at, entity_profiles.id, entity, profile_id, contextual_rules, entity_profiles.created_at, entity_profiles.updated_at FROM profiles JOIN entity_profiles ON profiles.id = entity_profiles.profile_id
 WHERE profiles.project_id = $1

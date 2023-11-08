@@ -26,6 +26,9 @@ WHERE profile_id = $1 AND entity = $2 RETURNING *;
 -- name: DeleteProfileForEntity :exec
 DELETE FROM entity_profiles WHERE profile_id = $1 AND entity = $2;
 
+-- name: GetProfileForEntity :one
+SELECT * FROM entity_profiles WHERE profile_id = $1 AND entity = $2;
+
 -- name: GetProfileByProjectAndID :many
 SELECT * FROM profiles JOIN entity_profiles ON profiles.id = entity_profiles.profile_id
 WHERE profiles.project_id = $1 AND profiles.id = $2;
