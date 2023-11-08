@@ -838,7 +838,7 @@ func updateProfileRulesForEntity(
 		log.Printf("error marshalling %s rules: %v", entity, err)
 		return status.Errorf(codes.Internal, "error creating profile")
 	}
-	entProf, err := qtx.UpdateProfileForEntity(ctx, db.UpdateProfileForEntityParams{
+	entProf, err := qtx.UpsertProfileForEntity(ctx, db.UpsertProfileForEntityParams{
 		ProfileID:       profile.ID,
 		Entity:          entities.EntityTypeToDB(entity),
 		ContextualRules: marshalled,

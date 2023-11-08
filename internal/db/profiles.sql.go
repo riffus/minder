@@ -499,20 +499,24 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 	return i, err
 }
 
-const updateProfileForEntity = `-- name: UpdateProfileForEntity :one
-UPDATE entity_profiles SET
+const upsertProfileForEntity = `-- name: UpsertProfileForEntity :one
+INSERT INTO entity_profiles (
+    entity,
+    profile_id,
+    contextual_rules) VALUES ($1, $2, $3::jsonb)
+ON CONFLICT (entity, profile_id) DO UPDATE SET
     contextual_rules = $3::jsonb
-WHERE profile_id = $1 AND entity = $2 RETURNING id, entity, profile_id, contextual_rules, created_at, updated_at
+RETURNING id, entity, profile_id, contextual_rules, created_at, updated_at
 `
 
-type UpdateProfileForEntityParams struct {
-	ProfileID       uuid.UUID       `json:"profile_id"`
+type UpsertProfileForEntityParams struct {
 	Entity          Entities        `json:"entity"`
+	ProfileID       uuid.UUID       `json:"profile_id"`
 	ContextualRules json.RawMessage `json:"contextual_rules"`
 }
 
-func (q *Queries) UpdateProfileForEntity(ctx context.Context, arg UpdateProfileForEntityParams) (EntityProfile, error) {
-	row := q.db.QueryRowContext(ctx, updateProfileForEntity, arg.ProfileID, arg.Entity, arg.ContextualRules)
+func (q *Queries) UpsertProfileForEntity(ctx context.Context, arg UpsertProfileForEntityParams) (EntityProfile, error) {
+	row := q.db.QueryRowContext(ctx, upsertProfileForEntity, arg.Entity, arg.ProfileID, arg.ContextualRules)
 	var i EntityProfile
 	err := row.Scan(
 		&i.ID,

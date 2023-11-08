@@ -1710,21 +1710,6 @@ func (mr *MockStoreMockRecorder) UpdateProfile(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockStore)(nil).UpdateProfile), arg0, arg1)
 }
 
-// UpdateProfileForEntity mocks base method.
-func (m *MockStore) UpdateProfileForEntity(arg0 context.Context, arg1 db.UpdateProfileForEntityParams) (db.EntityProfile, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateProfileForEntity", arg0, arg1)
-	ret0, _ := ret[0].(db.EntityProfile)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateProfileForEntity indicates an expected call of UpdateProfileForEntity.
-func (mr *MockStoreMockRecorder) UpdateProfileForEntity(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfileForEntity", reflect.TypeOf((*MockStore)(nil).UpdateProfileForEntity), arg0, arg1)
-}
-
 // UpdateRepository mocks base method.
 func (m *MockStore) UpdateRepository(arg0 context.Context, arg1 db.UpdateRepositoryParams) (db.Repository, error) {
 	m.ctrl.T.Helper()
@@ -1812,6 +1797,21 @@ func (m *MockStore) UpsertArtifactVersion(arg0 context.Context, arg1 db.UpsertAr
 func (mr *MockStoreMockRecorder) UpsertArtifactVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertArtifactVersion", reflect.TypeOf((*MockStore)(nil).UpsertArtifactVersion), arg0, arg1)
+}
+
+// UpsertProfileForEntity mocks base method.
+func (m *MockStore) UpsertProfileForEntity(arg0 context.Context, arg1 db.UpsertProfileForEntityParams) (db.EntityProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertProfileForEntity", arg0, arg1)
+	ret0, _ := ret[0].(db.EntityProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpsertProfileForEntity indicates an expected call of UpsertProfileForEntity.
+func (mr *MockStoreMockRecorder) UpsertProfileForEntity(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertProfileForEntity", reflect.TypeOf((*MockStore)(nil).UpsertProfileForEntity), arg0, arg1)
 }
 
 // UpsertPullRequest mocks base method.

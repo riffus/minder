@@ -124,7 +124,6 @@ type Querier interface {
 	UpdateAccessToken(ctx context.Context, arg UpdateAccessTokenParams) (ProviderAccessToken, error)
 	UpdateOrganization(ctx context.Context, arg UpdateOrganizationParams) (Project, error)
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
-	UpdateProfileForEntity(ctx context.Context, arg UpdateProfileForEntityParams) (EntityProfile, error)
 	// set clone_url if the value is not an empty string
 	UpdateRepository(ctx context.Context, arg UpdateRepositoryParams) (Repository, error)
 	UpdateRepositoryByID(ctx context.Context, arg UpdateRepositoryByIDParams) (Repository, error)
@@ -132,6 +131,7 @@ type Querier interface {
 	UpdateRuleType(ctx context.Context, arg UpdateRuleTypeParams) error
 	UpsertArtifact(ctx context.Context, arg UpsertArtifactParams) (Artifact, error)
 	UpsertArtifactVersion(ctx context.Context, arg UpsertArtifactVersionParams) (ArtifactVersion, error)
+	UpsertProfileForEntity(ctx context.Context, arg UpsertProfileForEntityParams) (EntityProfile, error)
 	UpsertPullRequest(ctx context.Context, arg UpsertPullRequestParams) (PullRequest, error)
 	UpsertRuleDetailsAlert(ctx context.Context, arg UpsertRuleDetailsAlertParams) (uuid.UUID, error)
 	UpsertRuleDetailsEval(ctx context.Context, arg UpsertRuleDetailsEvalParams) (uuid.UUID, error)

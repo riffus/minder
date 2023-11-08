@@ -18,10 +18,14 @@ INSERT INTO entity_profiles (
     profile_id,
     contextual_rules) VALUES ($1, $2, sqlc.arg(contextual_rules)::jsonb) RETURNING *;
 
--- name: UpdateProfileForEntity :one
-UPDATE entity_profiles SET
+-- name: UpsertProfileForEntity :one
+INSERT INTO entity_profiles (
+    entity,
+    profile_id,
+    contextual_rules) VALUES ($1, $2, sqlc.arg(contextual_rules)::jsonb)
+ON CONFLICT (entity, profile_id) DO UPDATE SET
     contextual_rules = sqlc.arg(contextual_rules)::jsonb
-WHERE profile_id = $1 AND entity = $2 RETURNING *;
+RETURNING *;
 
 -- name: DeleteProfileForEntity :exec
 DELETE FROM entity_profiles WHERE profile_id = $1 AND entity = $2;
